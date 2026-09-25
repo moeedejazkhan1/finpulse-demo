@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: dim_account
+    columns:
+      - name: account_id
+        tests: [not_null, unique]
+  - name: dim_merchant
+    columns:
+      - name: merchant_id
+        tests: [not_null, unique]
+  - name: fct_transactions
+    columns:
+      - name: transaction_id
+        tests: [not_null, unique]
+      - name: amount
+        tests: [not_null]
+
+sources:
+  - name: marts_written_by_ml
+    schema: marts
+    description: >
+      Not a dbt-managed source in the usual sense -- fct_fraud_scores is
+      written directly to Postgres by src/ml/fraud_scoring/score.py
+      (see plan.md's Constitution Check: fraud scoring is an enrichment
+      step, not a dbt transformation). Documented here so it's
+      discoverable from the dbt project alongside the tables dbt does
+      manage.
+    tables:
+      - name: fct_fraud_scores
+        description: >
+          One row per transaction_id, written by the batch scoring job.
+          risk_score (float, 0-1) and is_flagged (bool) per transaction.

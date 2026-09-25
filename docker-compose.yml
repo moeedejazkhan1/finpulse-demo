@@ -1,0 +1,151 @@
+x-airflow-env: &airflow-env
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://finpulse:finpulse@postgres:5432/airflow
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+  AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: finpulse
+  POSTGRES_USER: finpulse
+  POSTGRES_PASSWORD: finpulse
+  MINIO_ENDPOINT: http://minio:9000
+  MINIO_ROOT_USER: finpulse
+  MINIO_ROOT_PASSWORD: finpulse123
+  PYTHONPATH: /opt/airflow/project/src
+
+services:
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: finpulse
+      POSTGRES_PASSWORD: finpulse
+      POSTGRES_DB: finpulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finpulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: finpulse
+      MINIO_ROOT_PASSWORD: finpulse123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: finpulse
+      MINIO_ROOT_PASSWORD: finpulse123
+    entrypoint: ["/bin/sh", "/scripts/create-bucket.sh"]
+    volumes:
+      - ./infra/minio/create-bucket.sh:/scripts/create-bucket.sh:ro
+    restart: "no"
+
+  airflow-init:
+    build:
+      context: ./airflow
+    environment:
+      <<: *airflow-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - .:/opt/airflow/project
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - >
+        airflow db migrate &&
+        airflow users create
+          --username admin --password admin
+          --firstname FinPulse --lastname Admin
+          --role Admin --email admin@finpulse.local || true
+    restart: "no"
+
+  airflow-webserver:
+    build:
+      context: ./airflow
+    environment:
+      <<: *airflow-env
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - .:/opt/airflow/project
+    ports:
+      - "8080:8080"
+    command: airflow webserver
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  airflow-scheduler:
+    build:
+      context: ./airflow
+    environment:
+      <<: *airflow-env
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - .:/opt/airflow/project
+    command: airflow scheduler
+
+  metabase:
+    image: metabase/metabase:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  metabase-init:
+    build:
+      context: ./infra/metabase
+    depends_on:
+      metabase:
+        condition: service_healthy
+    environment:
+      METABASE_URL: http://metabase:3000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: finpulse
+      POSTGRES_USER: finpulse
+      POSTGRES_PASSWORD: finpulse
+    restart: "no"
+
+volumes:
+  pg_data:
+  minio_data:

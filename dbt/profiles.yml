@@ -1,0 +1,12 @@
+finpulse:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'postgres') }}"
+      user: "{{ env_var('POSTGRES_USER', 'finpulse') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'finpulse') }}"
+      port: 5432
+      dbname: "{{ env_var('POSTGRES_DB', 'finpulse') }}"
+      schema: staging
+      threads: 4

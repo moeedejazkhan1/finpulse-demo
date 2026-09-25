@@ -1,0 +1,25 @@
+{
+  "dashboard_name": "FinPulse Overview",
+  "questions": [
+    {
+      "name": "Transaction Volume Over Time",
+      "display": "line",
+      "sql": "select occurred_date as day, count(*) as transaction_count from marts.fct_transactions group by 1 order by 1"
+    },
+    {
+      "name": "Revenue by Merchant",
+      "display": "bar",
+      "sql": "select merchant_name, sum(amount) as revenue from marts.fct_transactions group by 1 order by revenue desc limit 15"
+    },
+    {
+      "name": "Revenue by Region",
+      "display": "bar",
+      "sql": "select region, sum(amount) as revenue from marts.fct_transactions group by 1 order by revenue desc"
+    },
+    {
+      "name": "Flagged Transaction Rate",
+      "display": "scalar",
+      "sql": "select round(100.0 * count(*) filter (where fs.is_flagged) / nullif(count(*), 0), 2) as flagged_rate_pct from marts.fct_transactions t left join marts.fct_fraud_scores fs on fs.transaction_id = t.transaction_id"
+    }
+  ]
+}

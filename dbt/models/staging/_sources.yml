@@ -1,0 +1,25 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: >
+      Raw layer, loaded by src/datagen's batch loader from the same
+      newline-delimited JSON files it lands in the MinIO raw zone
+      (finpulse-raw bucket). One shared schema for batch and any future
+      streaming source, per contracts/transaction-event-schema.md.
+    tables:
+      - name: accounts
+        columns:
+          - name: account_id
+            tests: [not_null, unique]
+      - name: merchants
+        columns:
+          - name: merchant_id
+            tests: [not_null, unique]
+      - name: transactions
+        columns:
+          - name: transaction_id
+            tests: [not_null, unique]
+          - name: amount
+            tests: [not_null]
