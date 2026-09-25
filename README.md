@@ -71,3 +71,35 @@ pytest tests/integration -v                  # requires the stack to be up
 ```powershell
 docker compose down -v
 ```
+
+## Running without Docker
+
+If Docker isn't available (no admin rights, no WSL2), the full pipeline also runs as native
+Windows processes — see the constitution's **Deployment Environment Exception** (v1.1.0) for why
+this exists and what it changes (Airflow → a plain script; MinIO → `moto`'s S3-compatible mock
+server, since MinIO stopped shipping Windows binaries).
+
+```powershell
+# One-time: portable Postgres + Java + Metabase downloaded into runtime/ (gitignored)
+# and a Python 3.11 venv (.venv311) with dbt-postgres installed (Python 3.14 lacks
+# prebuilt wheels for some deps as of this writing).
+
+# 1. Start Postgres (extracts + initializes on first run)
+powershell -File scripts\native\setup-postgres.ps1
+
+# 2. Start the S3-compatible mock server (separate terminal, leave running)
+.venv311\Scripts\python.exe scripts\native\start-s3-mock.py
+
+# 3. Run the pipeline (generate -> land -> dbt run -> score)
+.venv311\Scripts\python.exe scripts\run_pipeline.py
+
+# 4. Start Metabase (separate terminal, leave running; first boot ~1-2 min)
+powershell -File scripts\native\start-metabase.ps1
+
+# 5. Once Metabase is up, provision the dashboard
+powershell -File scripts\native\provision-dashboard.ps1
+```
+
+Same URLs as the Docker path (Postgres on 5432, S3-mock on 9000, Metabase on 3000) — just no
+`docker compose`, no Airflow UI. Re-running `run_pipeline.py` appends a fresh batch (new random
+UUIDs each time) rather than replacing data, which is fine for a demo but worth knowing.

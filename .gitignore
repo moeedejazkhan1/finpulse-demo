@@ -7,3 +7,9 @@ dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 *.egg-info/
+runtime/
+.venv311/
+metabase.db.*
+plugins/
+dbt/.user.yml
+.pytest_cache/

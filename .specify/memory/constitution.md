@@ -1,10 +1,17 @@
 <!--
 Sync Impact Report
-- Version change: [TEMPLATE] → 1.0.0 (initial ratification)
-- Modified principles: n/a (first version)
-- Added sections: Core Principles (5), Locked Scope & Technology Stack, Definition of Done & Quality Gates, Governance
+- Version change: 1.0.0 → 1.1.0
+- Modified principles: none
+- Added sections: "Deployment Environment Exception" under Locked Scope & Technology Stack
 - Removed sections: none
-- Follow-up TODOs: none
+- Rationale: the demo machine has no Docker, WSL2, Java, or native Postgres, and no confirmed
+  admin rights to install them. Airflow requires a Linux runtime (Docker or WSL2) with no
+  exception. Rather than block the demo indefinitely, orchestration is substituted with a plain
+  sequential script for local/native runs only — documented here instead of silently deviating,
+  per the Governance section's own rule.
+- Follow-up TODOs: revert to Docker Compose + real Airflow once Docker Desktop (or admin access)
+  is available; the exception is scoped to this machine/demo, not a redefinition of the target
+  architecture.
 -->
 # FinPulse Constitution
 
@@ -73,6 +80,26 @@ into the existing demo.
 - BI: Metabase
 - Deployment: Docker Compose, entirely local — no cloud account required
 
+### Deployment Environment Exception (added v1.1.0)
+
+Airflow requires a Linux runtime; it does not run on native Windows. On a machine with no
+Docker, no WSL2, and no confirmed admin rights, the following substitution applies for **local,
+native-process runs only** — it does not change the target architecture other environments
+should build toward:
+
+- **Orchestration**: a single sequential script (`scripts/run_pipeline.py`) replaces the two
+  Airflow DAGs, executing the same task graph (generate → land in raw → `dbt run` → fraud
+  scoring) in order, on demand. No scheduler UI, no retry/backoff semantics.
+- **Postgres, MinIO, Metabase**: run as native local processes (portable binaries / a portable
+  JVM) instead of Docker containers. Same engines, same schemas, same ports where practical —
+  only the packaging differs.
+- This exception does not relax Principles I–V: layering, the unified transformation path,
+  dbt-as-source-of-truth, independent testability, and demo-clarity-over-hardening all still
+  apply in full to the native run.
+- Once Docker (or WSL2 + admin access) is available, the environment MUST revert to the
+  Docker Compose + Airflow path described above; this section should be removed at that point,
+  not left as permanent dead documentation.
+
 ## Definition of Done & Quality Gates
 
 A change is complete only when the full stack still satisfies all of the following, verified via
@@ -100,4 +127,4 @@ message `docs: amend constitution to vX.Y.Z (<summary>)`.
 **Compliance review**: each `/speckit-plan` and `/speckit-tasks` pass MUST be reviewed against
 this constitution before `/speckit-implement` runs.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-03 | **Last Amended**: 2026-09-03
+**Version**: 1.1.0 | **Ratified**: 2026-09-03 | **Last Amended**: 2026-09-25
